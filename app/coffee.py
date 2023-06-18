@@ -16,6 +16,10 @@ def write_data(data: dict):
     with open(DB_FILE, "w") as f:
         json.dump(data, f)
 
+@router.get("/health")
+def health_check():
+    return {"status": "OK"}
+
 @router.get("/v1/coffee/favourite", dependencies=[Depends(authenticate)])
 def get_favourite_coffee(user: str = Depends(authenticate)):
     data = read_data()
