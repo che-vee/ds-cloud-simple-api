@@ -15,9 +15,9 @@ logging.basicConfig(
 )
 
 APP_URLS = [
-    "http://localhost:8081",
-    "http://localhost:8082",
-    "http://localhost:8083",
+    "http://host.docker.internal:8081",
+    "http://host.docker.internal:8082",
+    "http://host.docker.internal:8083",
 ]
 
 healthy_apps = []
@@ -49,7 +49,8 @@ def redirect_request(request: Request):
     next_app_url = next(app_urls_cycle)
     try:
         request_path = request.url.path
-        redirect_url = f"{next_app_url}{request_path}"
+        updated_url_for_docker_compose = next_app_url.replace("host.docker.internal", "localhost")
+        redirect_url = f"{updated_url_for_docker_compose}{request_path}"
 
         logging.info(f"Redirecting request to: {redirect_url}")
         return RedirectResponse(url=redirect_url, status_code=307)
