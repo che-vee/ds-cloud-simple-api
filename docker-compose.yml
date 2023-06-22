@@ -5,20 +5,25 @@ services:
         build:
             context: .
             dockerfile: Dockerfile-app
+        environment:
+          - DATABASE_URL=sqlite:////app/database/sql_app.db
         ports:
             - "8081:8000"
 
     app2:
         build:
-            context: .
+            context: . 
             dockerfile: Dockerfile-app
-        ports:
+        environment:
+          - DATABASE_URL=sqlite:////app/database/sql_app.db
             - "8082:8000"
 
     app3:
         build:
             context: .
             dockerfile: Dockerfile-app
+        environment:
+          - DATABASE_URL=sqlite:////app/database/sql_app.db
         ports:
             - "8083:8000"
 
@@ -32,3 +37,8 @@ services:
             - app1
             - app2
             - app3
+    
+    database:
+        build:
+            context: .
+            dockerfile: database/Dockerfile-database
