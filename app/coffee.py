@@ -5,6 +5,7 @@ from database.models import User
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 from database.database import SessionLocal
+from consumer.sqs import send_message
 
 router = APIRouter()
 
@@ -79,4 +80,5 @@ def create_user(body: Dict[str, str], user: str = Depends(authenticate), session
     session.commit()
     
     message = {"user_id": new_user.id, "email": new_user.email}
-    return {"message": "User created and sent for processing"}
+    send_message(message)
+    return {"message": "User created and sent for processing."}
