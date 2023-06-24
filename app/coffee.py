@@ -1,12 +1,16 @@
 from typing import Dict
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from .auth import authenticate
 from database.models import User
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 from database.database import SessionLocal
+from .rate_limiter import fixed_window_rate_limiter
 
 router = APIRouter()
+
+leaderboard_rl = fixed_window_rate_limiter(rate=3, window_size=60)
+favourite_coffee_rl = fixed_window_rate_limiter(rate=10, window_size=60)
 
 def get_db_session():
     session = SessionLocal()
@@ -42,12 +46,22 @@ def get_favourite_coffee(user: str = Depends(authenticate), session: Session = D
     return {"data": {"favourite_coffee": result.favourite_coffee}}
 
 @router.get("/v1/admin/coffee/favourite/leaderboard", dependencies=[Depends(authenticate)])
-def get_leaderboard(session: Session = Depends(get_db_session)):
+def get_leaderboard(request: Request, session: Session = Depends(get_db_session)):
+    ip_address = request.client.host
+
+    if not leaderboard_rl(ip_address):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded.")
+    
     top_three = get_favourite_coffees_count(session)
     return {"data": {"top_three": top_three}}
 
 @router.post("/v1/coffee/favourite", status_code=status.HTTP_201_CREATED, dependencies=[Depends(authenticate)])
-def set_favourite_coffee(body: Dict[str, str], user: str = Depends(authenticate), session: Session = Depends(get_db_session)):
+def set_favourite_coffee(request: Request, body: Dict[str, str], user: str = Depends(authenticate), session: Session = Depends(get_db_session)):
+    ip_address = request.client.host
+
+    if not favourite_coffee_rl(ip_address):
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Rate limit exceeded.")
+
     favourite_coffee = body.get("favourite_coffee")
     if not favourite_coffee:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Favourite coffee not provided.")
