@@ -5,6 +5,7 @@ from database.models import User
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.expression import func
 from database.database import SessionLocal
+from consumer.sqs import send_message
 
 router = APIRouter()
 
@@ -58,8 +59,7 @@ def set_favourite_coffee(body: Dict[str, str], user: str = Depends(authenticate)
     else:
         new_user = User(username=user, favourite_coffee=favourite_coffee)
         session.add(new_user)
-
-    session.commit()
+        session.commit()
 
     top_three = get_favourite_coffees_count(session)
     return {"data": {"favourite_coffee": favourite_coffee, "top_three": top_three}}
@@ -71,14 +71,14 @@ def create_user(body: Dict[str, str], user: str = Depends(authenticate), session
     if not username or not email:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User info not provided.")
 
-    existing_user = get_user_info(user, session)
+    existing_user = get_user_info(username, session)
     if existing_user:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already exists.")
-    else:
-        new_user = User(username=username, email=email)
-        session.add(new_user)
-
+    
+    new_user = User(username=username, email=email)
+    session.add(new_user)
     session.commit()
     
-    message = {"user_id": user.id, "email": user.email}
-    return {"message": "User created and sent for processing"}
+    message = {"user_id": new_user.id, "email": new_user.email}
+    send_message(message)
+    return {"message": "User created and sent for processing."}

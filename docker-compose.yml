@@ -42,3 +42,10 @@ services:
         build:
             context: .
             dockerfile: database/Dockerfile-database
+    
+    sqs:
+        build:
+            context: .
+            dockerfile: consumer/Dockerfile-sqs
+        env_file:
+            - consumer/.env
