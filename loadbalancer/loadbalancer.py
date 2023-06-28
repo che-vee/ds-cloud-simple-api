@@ -5,6 +5,9 @@ from itertools import cycle
 import logging
 import requests
 import time
+import boto3
+import os
+import json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,11 +17,7 @@ logging.basicConfig(
     ]
 )
 
-APP_URLS = [
-    "http://host.docker.internal:8081",
-    "http://host.docker.internal:8082",
-    "http://host.docker.internal:8083",
-]
+APP_URLS = []
 
 healthy_apps = []
 app_urls_cycle = cycle(healthy_apps)
@@ -62,7 +61,26 @@ app = FastAPI()
 
 @app.on_event("startup")
 async def startup_event():
-    app.add_event_handler("startup", get_healthy_apps)
+    s3 = boto3.resource('s3', 
+                        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY")
+    )
+    bucket_name = 'hosturls'
+    object_key = 'hosts.json'
+
+    try:
+        obj = s3.Object(bucket_name, object_key)
+        hosts_data = obj.get()['Body'].read().decode('utf-8')
+        hosts_config = json.loads(hosts_data)
+        
+        APP_URLS.extend(hosts_config['urls'])
+
+        get_healthy_apps()
+        
+        logging.info("Load balancer initialized successfully.")
+    except Exception as e:
+        logging.error(f"Failed to fetch hosts configuration from S3: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
     
 @app.middleware("http")
 async def load_balancer_middleware(request: Request, call_next):
